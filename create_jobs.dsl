@@ -20,21 +20,25 @@ printy list
 
 list.jobs.each { create_job(it) }
 
-list.matrix.each { println list["${it}"] }
+list.matrix.each { create_job(list["${it}"]) }
 
 
 //  ################################### METHODS #####################################  //
 
-def create_job(job_info) {    
+def create_job(job_info) {
+    printy job_info
 
+    //TODO update folder_name
+    folder_name = job_info.name.replace(' ','-')
     job_name = job_info.name.replace(' ','-')
-    folder(job_name)
-    job("${job_name}/${job_name}-brancher") {
+
+    folder(folder_name)
+    job("${folder_name}/${job_name}-brancher") {
         disabled(false)
         blockOnUpstreamProjects()
-        // TODO
         steps {
-            shell('echo hello')
+            //TODO
+            shell("echo ${job_info}")
         }
     }
 }
