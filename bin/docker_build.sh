@@ -36,14 +36,34 @@ CONTAINER_VERSION_NAME=$DOCKER_REPO:$PROJECT_VERSION
 function container_build() {
     $DEBUG_PREFIX docker build $DOCKER_OPTIONS \
         -t $CONTAINER_BUILD_NAME \
-        --build-arg VERSION=$PRODUCT_VERSION \
+        --build-arg VERSION=$PROJECT_VERSION \
         $CONTAINER_BUILD_CONTEXT
 }
 
 
 function main() {
+  validate_vars
   container_build  
 }
+
+
+function validate_vars() {
+    if [ -z "$DOCKER_REPO" ]; then
+      echo "No DOCKER_REPO specified!"
+      exit 1
+    fi
+
+    if [ -z "$PROJECT_BRANCH" ]; then
+      echo "No BRANCH specified!"
+      exit 1
+    fi
+
+    if [ -z "$PROJECT_VERSION" ]; then
+      echo "No PROJECT_VERSION found!"
+      exit 1
+    fi
+}
+
 
 env
 main
