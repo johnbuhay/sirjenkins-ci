@@ -17,6 +17,7 @@ set -x # for debugging
 
 # DEBUG_PREFIX="echo" # for debugging
 BIN_DIR=$(dirname "$0")
+BUILD_ARGS=""
 
 DOCKER_OPTIONS=${DOCKER_OPTIONS:-}
 DOCKER_REPO=${DOCKER_REPO:-}
@@ -36,7 +37,7 @@ CONTAINER_VERSION_NAME=$DOCKER_REPO:$PROJECT_VERSION
 function container_build() {
     $DEBUG_PREFIX docker build $DOCKER_OPTIONS \
         -t $CONTAINER_BUILD_NAME \
-        --build-arg VERSION=$PROJECT_VERSION \
+        $BUILD_ARGS \
         $CONTAINER_BUILD_CONTEXT
 }
 
@@ -61,6 +62,10 @@ function validate_vars() {
     if [ -z "$PROJECT_VERSION" ]; then
       echo "No PROJECT_VERSION found!"
       exit 1
+    fi
+
+    if grep -q 'ARG VERSION' ${CONTAINER_BUILD_CONTEXT}/Dockerfile; then
+      BUILD_ARGS="--build-arg VERSION=$PROJECT_VERSION"
     fi
 }
 
