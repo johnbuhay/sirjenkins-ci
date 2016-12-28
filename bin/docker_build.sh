@@ -15,7 +15,7 @@ set -x # for debugging
 # run publish test
 # if publish test succeeds, tag container and push to registry
 
-DEBUG_PREFIX="echo" # for debugging
+# DEBUG_PREFIX="echo" # for debugging
 BIN_DIR=$(dirname "$0")
 
 DOCKER_OPTIONS=${DOCKER_OPTIONS:-}
