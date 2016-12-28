@@ -56,7 +56,13 @@ branches.each {
         
     }
     steps {
-      shell ("docker build -t ${docker_repo}/${job_name} ${job_name}")
+      shell """
+        export BUILD_TYPE=${build_type}
+        export DOCKER_REPO=\"${docker_repo}/${job_name}\"
+        export PROJECT_BRANCH=${this_branch}
+        export CONTAINER_BUILD_CONTEXT=${job_name}
+        ci/bin/build.sh
+        """.stripIndent()
     }
   }
 }
