@@ -18,37 +18,23 @@ def sirjenkins = new Yaml().load(
   readFileFromWorkspace('sirjenkins.yml')
 )
 def repo = 'https://github.com/jnbnyc/docker-shelf.git'
-def job = sirjenkins.jessie
-def job_name = job.name.replace(' ','-')
-def build_type = job.build_type
-def docker_repo = job.override_docker_repo
-
+def job_definition = sirjenkins.jessie
+def job_name = job_definition.name.replace(' ','-')
+def build_type = job_definition.build_type
+def docker_repo = job_definition.override_docker_repo
 
 branches.each {
   def branch = it.key
   def sha = it.value
+  println "${branch} : ${sha}"
   
   folder(job_name)
-  job(job_name) {
+  job("${job_name}/${job_name}-${branch}") {
     scm {
         git(repo, branch)
     }
     steps {
-      shell ("docker build -t ${docker_repo}/${job_name} .")
+      shell ("docker build -t ${docker_repo}/${job_name} ${job_name}")
     }
   }
-}
-
-
-def gitUrl = 'git://github.com/jenkinsci/job-dsl-plugin.git'
-job('PROJ-unit-tests') {
-    scm {
-        git(gitUrl)
-    }
-    triggers {
-        scm('*/15 * * * *')
-    }
-    steps {
-        maven('-e clean test')
-    }
 }

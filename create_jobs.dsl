@@ -28,7 +28,7 @@ list.matrix.each { create_job(list["${it}"]) }
 def create_job(job_info) {
     printy job_info
 
-    //TODO update folder_name
+    //TODO update folder_name strategy
     folder_name = job_info.name.replace(' ','-')
     job_name = job_info.name.replace(' ','-')
 
@@ -37,8 +37,24 @@ def create_job(job_info) {
         disabled(false)
         blockOnUpstreamProjects()
         steps {
+            //TODO improve scm strategy
+            if(job_info.scm) {
+              scm {
+                github "${job_info.scm}"
+              }
+            }
             //TODO
-            shell("echo ${job_info}")
+            // manages jobs for qualified branches
+            jobDsl {
+                scriptText(readFileFromWorkspace('ci/brancher.dsl'))
+                additionalClasspath('/usr/lib/jvm/java-1.8-openjdk/jre/bin')
+                failOnMissingPlugin(true)
+                ignoreExisting(false)
+                ignoreMissingFiles(false)
+                // ignoreMissingFiles
+                removedJobAction('DELETE')
+                removedViewAction('DELETE')
+            }
         }
     }
 }
