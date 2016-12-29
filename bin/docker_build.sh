@@ -34,14 +34,6 @@ PROJECT_VERSION=$(bash ${BIN_DIR}/get_version.sh ${CONTAINER_BUILD_CONTEXT})
 CONTAINER_VERSION_NAME=$DOCKER_REPO:$PROJECT_VERSION
 
 
-function container_build() {
-    $DEBUG_PREFIX docker build $DOCKER_OPTIONS \
-        -t $CONTAINER_BUILD_NAME \
-        $BUILD_ARGS \
-        $CONTAINER_BUILD_CONTEXT
-}
-
-
 function cleanup() {
     echo 'Stopped Containers'
     docker ps -a --filter "status=exited"
@@ -63,6 +55,14 @@ function cleanup() {
 
     echo Remaining images are
     docker images
+}
+
+
+function container_build() {
+    $DEBUG_PREFIX docker build $DOCKER_OPTIONS \
+        -t $CONTAINER_BUILD_NAME \
+        $BUILD_ARGS \
+        $CONTAINER_BUILD_CONTEXT
 }
 
 
