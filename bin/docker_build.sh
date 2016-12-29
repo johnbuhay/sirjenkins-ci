@@ -42,6 +42,30 @@ function container_build() {
 }
 
 
+function cleanup() {
+  echo 'Stopped Containers'
+  docker ps -a --filter "status=exited"
+
+  echo Deleting just built container
+  docker rmi $CONTAINER_BUILD_NAME || true
+
+  echo Deleting stopped containers
+  docker rm -v $(docker ps -a -q --no-trunc --filter "status=exited") || true
+
+  echo Deleting dangling images
+  docker rmi $(docker images -q --no-trunc --filter "dangling=true") || true
+
+  echo Deleting dangling volumes
+  docker volume rm $(docker volume ls -q --filter "dangling=true") || true
+
+  echo Running containers are
+  docker ps
+
+  echo Remaining images are
+  docker images
+}
+
+
 function main() {
   validate_vars
   container_build  
@@ -72,3 +96,4 @@ function validate_vars() {
 
 env
 main
+cleanup
