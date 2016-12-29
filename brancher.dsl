@@ -29,6 +29,7 @@ sirjenkins.each {
     def docker_repo = job_definition.docker.override_repo
     def build_context = job_definition.docker.build_context ?: '.'
     def repo = job_definition.scm
+    def job_desc = job_definition.description
 
     branches.each {
       def this_branch = it.key.replaceAll(' ','-')
@@ -37,6 +38,7 @@ sirjenkins.each {
       
       folder(job_name)
       job("${job_name}/${job_name}-${this_branch}") {
+        description(job_desc)
         multiscm {
           git {
             remote {
