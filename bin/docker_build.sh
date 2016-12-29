@@ -43,53 +43,67 @@ function container_build() {
 
 
 function cleanup() {
-  echo 'Stopped Containers'
-  docker ps -a --filter "status=exited"
+    echo 'Stopped Containers'
+    docker ps -a --filter "status=exited"
 
-  echo Deleting just built container
-  docker rmi $CONTAINER_BUILD_NAME || true
+    echo Deleting just built container
+    docker rmi $CONTAINER_BUILD_NAME || true
 
-  echo Deleting stopped containers
-  docker rm -v $(docker ps -a -q --no-trunc --filter "status=exited") || true
+    echo Deleting stopped containers
+    docker rm -v $(docker ps -a -q --no-trunc --filter "status=exited") || true
 
-  echo Deleting dangling images
-  docker rmi $(docker images -q --no-trunc --filter "dangling=true") || true
+    echo Deleting dangling images
+    docker rmi $(docker images -q --no-trunc --filter "dangling=true") || true
 
-  echo Deleting dangling volumes
-  docker volume rm $(docker volume ls -q --filter "dangling=true") || true
+    echo Deleting dangling volumes
+    docker volume rm $(docker volume ls -q --filter "dangling=true") || true
 
-  echo Running containers are
-  docker ps
+    echo Running containers are
+    docker ps
 
-  echo Remaining images are
-  docker images
+    echo Remaining images are
+    docker images
 }
 
 
 function main() {
-  validate_vars
-  container_build  
+    validate_vars
+    container_build  
+}
+
+
+function semver_build() {
+    if docker pull $CONTAINER_VERSION_NAME; then
+        if echo $PRODUCT_VERSION | grep -qP "\-(\d+|SNAPSHOT)"; then
+            build_container
+        else
+            echo Skipping docker build because container $CONTAINER_VERSION_NAME already exists
+            CONTAINER_ID=$(docker inspect --format='{{.Id}}' $CONTAINER_VERSION_NAME)
+        fi
+    else
+        build_container
+    fi
 }
 
 
 function validate_vars() {
     if [ -z "$DOCKER_REPO" ]; then
-      echo "No DOCKER_REPO specified!"
-      exit 1
+        echo "No DOCKER_REPO specified!"
+        exit 1
     fi
 
     if [ -z "$PROJECT_BRANCH" ]; then
-      echo "No BRANCH specified!"
-      exit 1
+        echo "No BRANCH specified!"
+        exit 1
     fi
 
     if [ -z "$PROJECT_VERSION" ]; then
-      echo "No PROJECT_VERSION found!"
-      exit 1
+        echo "No PROJECT_VERSION found!"
+        exit 1
     fi
 
     if grep -q 'ARG VERSION' ${CONTAINER_BUILD_CONTEXT}/Dockerfile; then
-      BUILD_ARGS="--build-arg VERSION=$PROJECT_VERSION"
+        BUILD_ARGS="--build-arg VERSION=$PROJECT_VERSION"
     fi
 }
 
