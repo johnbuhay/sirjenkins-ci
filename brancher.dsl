@@ -27,6 +27,7 @@ sirjenkins.each {
     def job_name = job_definition.name.replaceAll(' ','-')
     def build_type = job_definition.build_type
     def docker_repo = job_definition.docker.override_repo
+    def build_context = job_definition.docker.build_context ?: '.'
     def repo = job_definition.scm
 
     branches.each {
@@ -61,7 +62,7 @@ sirjenkins.each {
             export BUILD_TYPE=${build_type}
             export DOCKER_REPO=\"${docker_repo}/${job_name}\"
             export PROJECT_BRANCH=${this_branch}
-            export CONTAINER_BUILD_CONTEXT=${job_name}
+            export CONTAINER_BUILD_CONTEXT=${build_context}
             ci/bin/build.sh
             """.stripIndent()
         }
