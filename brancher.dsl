@@ -22,47 +22,49 @@ def sirjenkins = new Yaml().load(
   readFileFromWorkspace('sirjenkins.yml')
 )
 
-def job_definition = sirjenkins.jessie
-def job_name = job_definition.name.replace(' ','-')
-def build_type = job_definition.build_type
-def docker_repo = job_definition.override_docker_repo
-def repo = job_definition.scm
+sirjenkins.each {
+    def job_definition = it.job
+    def job_name = job_definition.name.replaceAll(' ','-')
+    def build_type = job_definition.build_type
+    def docker_repo = job_definition.docker.override_repo
+    def repo = job_definition.scm
 
-branches.each {
-  def this_branch = it.key
-  def this_sha = it.value
-  println "${this_branch} : ${this_sha}"
-  
-  folder(job_name)
-  job("${job_name}/${job_name}-${this_branch}") {
-    multiscm {
-      git {
-        remote {
-            github ci.repo
-            branch ci.branch
-            credentials 'github-api-jnbnyc'
+    branches.each {
+      def this_branch = it.key.replaceAll(' ','-')
+      def this_sha = it.value
+      println "${this_branch} : ${this_sha}"
+      
+      folder(job_name)
+      job("${job_name}/${job_name}-${this_branch}") {
+        multiscm {
+          git {
+            remote {
+                github ci.repo
+                branch ci.branch
+                credentials 'github-api-jnbnyc'
+            }
+            extensions {
+                relativeTargetDirectory('ci')
+            }
+          }
+          git {
+            remote {
+                github repo
+                branch this_branch
+                credentials 'github-api-jnbnyc'
+            }
+          }
+            
         }
-        extensions {
-            relativeTargetDirectory('ci')
+        steps {
+          shell """
+            export BUILD_TYPE=${build_type}
+            export DOCKER_REPO=\"${docker_repo}/${job_name}\"
+            export PROJECT_BRANCH=${this_branch}
+            export CONTAINER_BUILD_CONTEXT=${job_name}
+            ci/bin/build.sh
+            """.stripIndent()
         }
       }
-      git {
-        remote {
-            github repo
-            branch this_branch
-            credentials 'github-api-jnbnyc'
-        }
-      }
-        
     }
-    steps {
-      shell """
-        export BUILD_TYPE=${build_type}
-        export DOCKER_REPO=\"${docker_repo}/${job_name}\"
-        export PROJECT_BRANCH=${this_branch}
-        export CONTAINER_BUILD_CONTEXT=${job_name}
-        ci/bin/build.sh
-        """.stripIndent()
-    }
-  }
 }

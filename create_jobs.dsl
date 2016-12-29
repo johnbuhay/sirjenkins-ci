@@ -15,12 +15,11 @@ def list = new Yaml().load(
     readFileFromWorkspace('sirjenkins.yml')
 )
 
-printy list
+// printy list
+//  https://jenkins-job-builder.readthedocs.io/en/latest/definition.html#job
+list.each { create_job(it.job) }
 
-
-list.jobs.each { create_job(it) }
-
-list.matrix.each { create_job(list["${it}"]) }
+// list.matrix.each { create_job(list["${it}"]) }
 
 
 //  ################################### METHODS #####################################  //
@@ -40,7 +39,13 @@ def create_job(job_info) {
             //TODO improve scm strategy
             if(job_info.scm) {
               scm {
-                github "${job_info.scm}"
+                git {
+                    remote {
+                        github job_info.scm
+                        branch 'master'
+                        credentials 'github-api-jnbnyc'
+                    }
+                  }
               }
             }
             //TODO
