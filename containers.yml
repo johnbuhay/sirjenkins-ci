@@ -2,6 +2,8 @@
 
 containers:
     - name: jnbnyc/worker_generic
+      version: 0.0.1-1
+      branch: master
       dockerfile: |
         FROM openjdk:8-jdk
 
