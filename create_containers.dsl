@@ -27,14 +27,21 @@ list.containers.each {
 
 def create_job(job_info) {
     // printy job_info
+
+    if(job_info.version) {
+      version_script = """
+        cat > version.txt <<- EOF
+        ${job_info.version}
+        EOF
+      """.stripIndent()
+    }
+
     build_script = """
 cat > config.vars <<- EOF
 export DOCKER_REPO=${job_info.name}
 EOF
 
-cat > version.txt <<- EOF
-${job_info.version}
-EOF
+${version_script ?: ''}
 
 cat > Dockerfile <<- EOF
 ${job_info.dockerfile}
