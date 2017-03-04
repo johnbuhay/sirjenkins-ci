@@ -1,0 +1,37 @@
+---
+
+containers:
+    - name: jnbnyc/worker_generic
+      dockerfile: |
+        FROM openjdk:8-jdk
+
+        # Install supporting software
+        USER root
+        RUN apt-get update && \
+            apt-get install -qy --no-install-recommends git apt-transport-https ca-certificates curl lxc iptables && \
+            rm -rf /var/cache/apt/* /var/lib/apt/lists/*
+
+        # For DIND Install Docker from Docker Inc. repositories.
+        RUN curl -sSL https://get.docker.com/ | sh
+
+        # Set up jenkins user
+        ENV JENKINS_HOME /var/jenkins_home
+        RUN useradd -d "$JENKINS_HOME" -u 1000 -m -s /bin/bash jenkins
+        RUN usermod -a -G users jenkins
+        RUN usermod -a -G docker jenkins
+
+        # Install Swarm
+        ENV SWARM_VERSION 3.3
+
+        RUN curl -ssL "https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/${SWARM_VERSION}/swarm-client-${SWARM_VERSION}.jar" \
+                 -o "${JENKINS_HOME}/swarm-client-${SWARM_VERSION}.jar"
+
+        RUN chown -R jenkins:jenkins "$JENKINS_HOME"
+        RUN chmod 664 "${JENKINS_HOME}/swarm-client-${SWARM_VERSION}.jar"
+
+        ADD https://gist.githubusercontent.com/jnbnyc/cc877a013742429f034afc3257c1a988/raw/d96eb88d96bf4e49162c833d4eea5e6bb9fa706e/swarm.sh /usr/local/bin/swarm.sh
+        RUN chmod +x /usr/local/bin/swarm.sh
+        RUN chown -R jenkins:jenkins "/usr/local/bin"
+
+        USER jenkins
+        ENTRYPOINT ["/usr/local/bin/swarm.sh"]
