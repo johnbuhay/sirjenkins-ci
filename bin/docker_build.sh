@@ -19,20 +19,24 @@ set -x # for debugging
 BIN_DIR=$(dirname "$0")
 BUILD_ARGS=""
 
-DOCKER_OPTIONS=${DOCKER_OPTIONS:-}
-DOCKER_REPO=${DOCKER_REPO:-}
-
 CONTAINER_PUSH=NO
 CONTAINER_TAGS=""
 CONTAINER_BUILD_CONTEXT=${CONTAINER_BUILD_CONTEXT:-.}
 CONTAINER_BUILD_TAG="$JOB_BASE_NAME-$BUILD_NUMBER"  #  these vars supplied by Jenkins
 CONTAINER_BUILD_NAME=$DOCKER_REPO:$CONTAINER_BUILD_TAG
+CONTAINER_VERSION_NAME=""
+
+DOCKER_OPTIONS=${DOCKER_OPTIONS:-}
 
 # PROJECT_BRANCH=${PROJECT_BRANCH:-$(git branch | grep -oE '\*\s\K.*$')}
 PROJECT_VERSION=$(bash ${BIN_DIR}/get_version.sh ${CONTAINER_BUILD_CONTEXT})
 
-CONTAINER_VERSION_NAME=$DOCKER_REPO:$PROJECT_VERSION
 
+function derive_version() {
+    GIT_SHORT_COMMIT=$(echo -n $GIT_COMMIT | awk '{print substr($1,0,8)}')
+    BRANCH_NAME=${GIT_BRANCH##origin/}
+    echo ${BRANCH_NAME}-${GIT_SHORT_COMMIT}
+}
 
 function cleanup() {
     echo 'Stopped Containers'
@@ -90,7 +94,7 @@ function container_build() {
 
 function container_pull_parent() {
   PARENT_CONTAINER="$(grep FROM $CONTAINER_BUILD_CONTEXT/Dockerfile | awk '{ print $2 }')"
-  
+
   if [ "$PARENT_CONTAINER" != "scratch" ]; then
     echo "Pulling parent container $PARENT_CONTAINER"
     $DEBUG_PREFIX docker pull "$PARENT_CONTAINER"
@@ -171,18 +175,26 @@ function validate_vars() {
     fi
 
     if [ -z "$PROJECT_BRANCH" ]; then
-        echo "No BRANCH specified!"
-        exit 1
+        echo "No BRANCH specified! Discovering branch..."
+        PROJECT_BRANCH=${GIT_BRANCH##origin/}
+        [ -z "$PROJECT_BRANCH"] && exit 1
     fi
 
     if [ -z "$PROJECT_VERSION" ]; then
-        echo "No PROJECT_VERSION found!"
-        exit 1
+        echo "PROJECT_VERSION undefined! Figuring it out..."
+        PROJECT_VERSION=$(derive_version)
+        [ -z "$PROJECT_VERSION" ] && exit 1
     fi
 
     if grep -q 'ARG VERSION' ${CONTAINER_BUILD_CONTEXT}/Dockerfile; then
         BUILD_ARGS="--build-arg VERSION=$PROJECT_VERSION"
     fi
+
+    if grep -q 'ARG GIT_COMMIT' ${CONTAINER_BUILD_CONTEXT}/Dockerfile; then
+        BUILD_ARGS="$BUILD_ARGS --build-arg GIT_COMMIT=$GIT_COMMIT"
+    fi
+
+    CONTAINER_VERSION_NAME=$DOCKER_REPO:$PROJECT_VERSION
 }
 
 
