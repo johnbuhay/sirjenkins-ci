@@ -27,31 +27,39 @@ list.containers.each {
 
 def create_job(job_info) {
     // printy job_info
+    build_script = ""
+    dockerfile_script = ""
     version_script = ""
+
     if(job_info.version) {
       version_script = """
-        cat > version.txt <<- EOF
-        ${job_info.version}
-        EOF
-      """.stripIndent()
+cat > source/version.txt <<- EOF
+${job_info.version}
+EOF
+""".stripIndent()
+    }
+
+    if(job_info.dockerfile) {
+      dockerfile_script = """
+  cat > source/Dockerfile <<- EOF
+  ${job_info.dockerfile}
+  EOF
+  """.stripIndent()
     }
 
     build_script = """
-cat >> .dockerignore <<- EOF
-ci/bin
-EOF
-
 cat > config.vars <<- EOF
+export CONTAINER_BUILD_CONTEXT=\${$WORKSPACE:-.}/source
 export DOCKER_REPO=${job_info.name}
 EOF
+source config.vars || true
+
+[ -d "source" ] || mkdir source
 
 ${version_script}
 
-cat > Dockerfile <<- EOF
-${job_info.dockerfile}
-EOF
+${dockerfile_script}
 
-source config.vars
 ci/bin/docker_build.sh
 """.stripIndent()
 
@@ -62,7 +70,7 @@ ci/bin/docker_build.sh
     job("${folder_name}/build-${job_name}") {
         disabled(false)
         blockOnUpstreamProjects()
-        scm {
+        multiscm {
           git {
             remote {
               github("jnbnyc/sirjenkins-ci")
@@ -73,7 +81,20 @@ ci/bin/docker_build.sh
               relativeTargetDirectory('ci')
             }
           }
+          if(job_info.git_repo) {
+            git {
+              remote {
+                github("${job_info.git_repo}")
+                branch("${job_info.git_branch}")
+                credentials('github-api-jnbnyc')
+              }
+              extensions {
+                relativeTargetDirectory('source')
+              }
+            }
+          }
         }
+
         steps { shell(build_script) }
     }
 }
