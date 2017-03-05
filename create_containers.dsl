@@ -37,6 +37,10 @@ def create_job(job_info) {
     }
 
     build_script = """
+cat >> .dockerignore <<- EOF
+ci/bin
+EOF
+
 cat > config.vars <<- EOF
 export DOCKER_REPO=${job_info.name}
 EOF
@@ -48,7 +52,7 @@ ${job_info.dockerfile}
 EOF
 
 source config.vars
-bin/docker_build.sh
+ci/bin/docker_build.sh
 """.stripIndent()
 
     folder_name = 'ci'
@@ -64,6 +68,9 @@ bin/docker_build.sh
               github("jnbnyc/sirjenkins-ci")
               branch('master')
               credentials('github-api-jnbnyc')
+            }
+            extensions {
+              relativeTargetDirectory('ci')
             }
           }
         }
