@@ -177,7 +177,7 @@ function validate_vars() {
     if [ -z "$PROJECT_BRANCH" ]; then
         echo "No BRANCH specified! Discovering branch..."
         PROJECT_BRANCH=${GIT_BRANCH##origin/}
-        [ -z "$PROJECT_BRANCH"] && exit 1
+        [ -z "$PROJECT_BRANCH" ] && exit 1
     fi
 
     if [ -z "$PROJECT_VERSION" ]; then

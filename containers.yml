@@ -1,6 +1,7 @@
 ---
 
 containers:
+# inline Dockerfile project definition
     - name: jnbnyc/worker_generic
       # version: 0.0.1-1
       dockerfile: |
@@ -37,6 +38,13 @@ containers:
         USER jenkins
         ENTRYPOINT ["/usr/local/bin/swarm.sh"]
 
+# single project defined in git repository
     - name: jnbnyc/jessie
       git_repo: jnbnyc/docker-jessie
       git_branch: master
+
+# multiple projects defined in git repository
+    - name: jnbnyc/c7-systemd
+      git_repo: jnbnyc/docker-shelf
+      git_branch: master
+      build_context: centos7/c7-systemd

@@ -28,6 +28,7 @@ list.containers.each {
 def create_job(job_info) {
     // printy job_info
     build_script = ""
+    container_build_context="\${WORKSPACE:-.}/source"
     dockerfile_script = ""
     version_script = ""
 
@@ -41,15 +42,19 @@ EOF
 
     if(job_info.dockerfile) {
       dockerfile_script = """
-  cat > source/Dockerfile <<- EOF
-  ${job_info.dockerfile}
-  EOF
-  """.stripIndent()
+cat > source/Dockerfile <<- EOF
+${job_info.dockerfile}
+EOF
+""".stripIndent()
+    }
+
+    if(job_info.build_context) {
+      container_build_context="${container_build_context}/${job_info.build_context}"
     }
 
     build_script = """
 cat > config.vars <<- EOF
-export CONTAINER_BUILD_CONTEXT=\${$WORKSPACE:-.}/source
+export CONTAINER_BUILD_CONTEXT=${container_build_context}
 export DOCKER_REPO=${job_info.name}
 EOF
 source config.vars || true
