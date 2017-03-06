@@ -80,6 +80,12 @@ function container_add_tags() {
         echo "$PROJECT_BRANCH does not push."
       ;;
   esac
+
+  # Uncommenting this includes derived version tags for every push
+  # this results in dirty container repositories that will include unique tags for each and every successful build!
+  # DERIVED_VERSION=$(derive_version)
+  # [ "$DERIVED_VERSION" != "$PROJECT_VERSION" ] && CONTAINER_TAGS="$CONTAINER_TAGS $DERIVED_VERSION"
+
   CONTAINER_TAGS="$CONTAINER_TAGS $PROJECT_BRANCH $PROJECT_VERSION"
 }
 
