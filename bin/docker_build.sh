@@ -26,6 +26,15 @@ CONTAINER_BUILD_TAG="$JOB_BASE_NAME-$BUILD_NUMBER"  #  these vars supplied by Je
 CONTAINER_BUILD_NAME=$DOCKER_REPO:$CONTAINER_BUILD_TAG
 CONTAINER_VERSION_NAME=""
 
+if [ -z "${DOCKER_CONFIG_FILE}" ]; then
+  _DOCKER_CFG=''
+else
+  # use the location specified by this variable instead of being dependent
+  # on ${HOME}/.docker/config.json, intended use is for workers
+  _DOCKER_CONFIG_DIR=$(dirname ${DOCKER_CONFIG_FILE})
+  _DOCKER_CFG="--config=${_DOCKER_CONFIG_DIR}"
+fi
+
 DOCKER_OPTIONS=${DOCKER_OPTIONS:-}
 
 # PROJECT_BRANCH=${PROJECT_BRANCH:-$(git branch | grep -oE '\*\s\K.*$')}
@@ -103,7 +112,7 @@ function container_pull_parent() {
 
   if [ "$PARENT_CONTAINER" != "scratch" ]; then
     echo "Pulling parent container $PARENT_CONTAINER"
-    $DEBUG_PREFIX docker pull "$PARENT_CONTAINER"
+    $DEBUG_PREFIX docker ${_DOCKER_CFG} pull "$PARENT_CONTAINER"
   fi
 }
 
@@ -143,7 +152,7 @@ function docker_build() {
 
 function docker_push() {
     echo "Pushing $DOCKER_REPO:$1"
-    $DEBUG_PREFIX docker push $DOCKER_REPO:$1
+    $DEBUG_PREFIX docker ${_DOCKER_CFG} push $DOCKER_REPO:$1
 }
 
 
@@ -161,7 +170,7 @@ function main() {
 
 
 function semver_build() {
-    if docker pull $CONTAINER_VERSION_NAME; then
+    if docker ${_DOCKER_CFG} pull $CONTAINER_VERSION_NAME; then
         if echo $PROJECT_VERSION | grep -qE "\-(\d+|SNAPSHOT)"; then
             container_build
         else
