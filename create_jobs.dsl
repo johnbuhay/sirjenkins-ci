@@ -12,7 +12,7 @@ import groovy.json.JsonOutput
 // println JsonOutput.prettyPrint(JsonOutput.toJson(list))
 
 def list = new Yaml().load(
-    readFileFromWorkspace('sirjenkins.yml')
+    readFileFromWorkspace('sirjenkins.yaml')
 )
 
 // printy list
