@@ -9,6 +9,7 @@ import org.yaml.snakeyaml.DumperOptions
 CI_BRANCH = 'master'
 CI_DIR = 'ci'
 SOURCE_DIR = 'source'
+// GITHUB_RAW_CONTENT = 'https://raw.githubusercontent.com'
 
 SCANNING_FOR = System.getenv('SCANNING_FOR') ?: 'sirjenkins'
 WORKSPACE = System.getenv('WORKSPACE') ?: Thread.currentThread().executable.workspace
@@ -39,126 +40,134 @@ def projectsToCreate = new Yaml().load(
 // """.stripIndent()
 //projectsToCreate = new Yaml().load(projectsToCreateYaml)
 
-projectsToCreate.each {
-    _thisJob = defaults + it
-    println prettyYaml(_thisJob)
-    // _test = it.something ?: null
-    // if(_test) { println _test }
+projectsToCreate.each { createProject(it) }
 
-    _scm_url = _thisJob.scm_url ?: null
-    _scm = _thisJob.full_name ?: null
-    if(!_scm) {
-      println "FATAL: full_name is required to proceed"
-      Thread.currentThread().stop()
+
+// trigger_project_brancher(projects_to_create)
+
+//  ################################### METHODS #####################################  //
+
+
+def createProject(app) {
+  _thisJob = defaults + app
+  // println prettyYaml(_thisJob)
+  // _test = app.something ?: null
+  // if(_test) { println _test }
+
+  _scm_url = _thisJob.scm_url ?: null
+  _scm = _thisJob.full_name ?: null
+  if(!_scm) {
+    println "FATAL: full_name is required to proceed"
+    Thread.currentThread().stop()
+  }
+  _job_name = _thisJob.name.replace(' ', '-')
+  _full_name = _scm.replace(' ', '-').split('/')[1]
+  _folder_name = _thisJob.folder ? "${_thisJob.folder}/${_full_name}" : _full_name
+
+  _desc = _thisJob.description ?: null
+  _nodeLabel = _thisJob['node-label'] ?: null
+  _buildSteps = _thisJob['build-steps'] ?: null
+  // if(_thisJob.containsKey('builders')) {
+  //     build_list = !_thisJob.builders.isEmpty()
+  //     build_steps = _thisJob.builders
+  // }
+  _downstream = _thisJob.downstream ?: null
+  _displayName = _thisJob['display-name'] ?: null
+  _concurrent = _thisJob.concurrent ?: null
+  _quietPeriod = _thisJob['quiet-period'] ?: null
+  _blockDownstream = _thisJob.blockDownstream ?: null
+  _blockUpstream = _thisJob.blockUpstream ?: null
+  _checkoutRetryCount = _thisJob.checkoutRetryCount ?: null
+  _logRotate = _thisJob.logrotate ?: null
+
+  REMOTE_URL = "${_scm_url}/${_scm}"
+  REMOTE_SCM_CREDS = _thisJob.scm_credentials ?: null
+
+  // make folders recursively
+  _folderPath = _folder_name.split('/')
+  _folderPath.eachWithIndex {folderName, index ->
+    if(index == 0) {
+      folder(_folderPath[0])
+    } else {
+      // for some reason range 0,0 returns value/value
+      folder(_folderPath[0,index].join('/'))
     }
-    _job_name = _thisJob.name.replace(' ', '-')
-    _full_name = _scm.replace(' ', '-').split('/')[1]
-    _folder_name = _thisJob.folder ? "${_thisJob.folder}/${_full_name}" : _full_name
+  }
 
-    _desc = _thisJob.description ?: null
-    _nodeLabel = _thisJob['node-label'] ?: null
-    _buildSteps = _thisJob['build-steps'] ?: null
-    // if(it.containsKey('builders')) {
-    //     build_list = !it.builders.isEmpty()
-    //     build_steps = it.builders
-    // }
-    _downstream = _thisJob.downstream ?: null
-    _displayName = _thisJob['display-name'] ?: null
-    _concurrent = _thisJob.concurrent ?: null
-    _quietPeriod = _thisJob['quiet-period'] ?: null
-    _blockDownstream = _thisJob.blockDownstream ?: null
-    _blockUpstream = _thisJob.blockUpstream ?: null
-    _checkoutRetryCount = _thisJob.checkoutRetryCount ?: null
-    _logRotate = _thisJob.logrotate ?: null
 
-    REMOTE_URL = "${_scm_url}/${_scm}"
-    REMOTE_SCM_CREDS = _thisJob.scm_credentials ?: null
-
-    // make folders recursively
-    _folderPath = _folder_name.split('/')
-    _folderPath.eachWithIndex {folderName, index ->
-      if(index == 0) {
-        folder(_folderPath[0])
-      } else {
-        // for some reason range 0,0 returns value/value
-        folder(_folderPath[0,index].join('/'))
+  job("${_folder_name}/${_job_name}") {
+      if(_nodeLabel) { label(_nodeLabel) }
+      if(_desc) { description(_desc) }
+      if(_displayName) {
+          // string
+          displayName(_displayName)
       }
-    }
 
+      if(_concurrent) {
+          // boolean; defaults to false
+          concurrentBuild(_concurrent)
+      }
 
-    job("${_folder_name}/${_job_name}") {
-        if(_nodeLabel) { label(_nodeLabel) }
-        if(_desc) { description(_desc) }
-        if(_displayName) {
-            // string
-            displayName(_displayName)
-        }
-
-        if(_concurrent) {
-            // boolean; defaults to false
-            concurrentBuild(_concurrent)
-        }
-
-        if(_quietPeriod) {
-            // integer
-            quietPeriod(_quietPeriod)
-        }
-
-        if(_blockDownstream) {
-          // boolean
-          blockOnDownstreamProjects()
-        }
-
-        if(_blockUpstream) {
-          // boolean
-          blockOnUpstreamProjects()
-        }
-
-        if(_checkoutRetryCount) {
+      if(_quietPeriod) {
           // integer
-          checkoutRetryCount(_checkoutRetryCount)
-        }
+          quietPeriod(_quietPeriod)
+      }
 
-        if(_logRotate) {
-            logRotator {
-              if(_logRotate.daysToKeep) { daysToKeep(_logRotate.daysToKeep) }
-              if(_logRotate.numToKeep) { numToKeep(_logRotate.numToKeep) }
-              if(_logRotate.artifactDaysToKeep) { artifactDaysToKeep(_logRotate.artifactDaysToKeep) }
-              if(_logRotate.artifactNumToKeep) { artifactNumToKeep(_logRotate.artifactNumToKeep) }
-            }
-        }
-        // if(_thisJob.brancher == 'enabled') {
-        //   println 'brancher enabled!'
-        // } else {
-        //   configureMultiSCM()
-        // }
-        steps {
-            if(_buildSteps) {
-                for (step in _buildSteps) {
-                    if (step.containsKey('shell')) { shell(step.shell) }
-                    if (step.containsKey('system-groovy')) {
-                        systemGroovyScriptFile(step['system-groovy'].file)
-                    }
-                    if (step.containsKey('dsl')) {
-                        dsl {
-                            external(step.dsl.file)
-                            ignoreExisting(false)
-                            removeAction('DELETE')
-                            removeViewAction('DELETE')
-                        }
+      if(_blockDownstream) {
+        // boolean
+        blockOnDownstreamProjects()
+      }
 
-                    }
-                }
-            }
-        }  // end steps
-        publishers {
-            if(_downstream) {
-                for(job in _downstream) {
-                    downstream(_downstream)
-                }
-            }
-        }  // end publishers
-    }
+      if(_blockUpstream) {
+        // boolean
+        blockOnUpstreamProjects()
+      }
+
+      if(_checkoutRetryCount) {
+        // integer
+        checkoutRetryCount(_checkoutRetryCount)
+      }
+
+      if(_logRotate) {
+          logRotator {
+            if(_logRotate.daysToKeep) { daysToKeep(_logRotate.daysToKeep) }
+            if(_logRotate.numToKeep) { numToKeep(_logRotate.numToKeep) }
+            if(_logRotate.artifactDaysToKeep) { artifactDaysToKeep(_logRotate.artifactDaysToKeep) }
+            if(_logRotate.artifactNumToKeep) { artifactNumToKeep(_logRotate.artifactNumToKeep) }
+          }
+      }
+      // if(_thisJob.brancher == 'enabled') {
+      //   println 'brancher enabled!'
+      // } else {
+      //   configureMultiSCM()
+      // }
+      steps {
+          if(_buildSteps) {
+              for (step in _buildSteps) {
+                  if (step.containsKey('shell')) { shell(step.shell) }
+                  if (step.containsKey('system-groovy')) {
+                      systemGroovyScriptFile(step['system-groovy'].file)
+                  }
+                  if (step.containsKey('dsl')) {
+                      dsl {
+                          external(step.dsl.file)
+                          ignoreExisting(false)
+                          removeAction('DELETE')
+                          removeViewAction('DELETE')
+                      }
+
+                  }
+              }
+          }
+      }  // end steps
+      publishers {
+          if(_downstream) {
+              for(job in _downstream) {
+                  downstream(_downstream)
+              }
+          }
+      }  // end publishers
+  }
 }
 
 
@@ -195,4 +204,21 @@ def prettyYaml(input) {
     options.setLineBreak(DumperOptions.LineBreak.UNIX)
     options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
     return new Yaml(options).dump(input)
+}
+
+
+def trigger_project_brancher(list_of_projects) {
+    folder_name = 'ci'
+    job_name = 'master'
+    folder(folder_name)
+    job("${folder_name}/${job_name}-downstream") {
+        logRotator(daysToKeepInt = 14)
+        blockOnUpstreamProjects()
+        publishers {
+            list_of_projects.each {
+                project_name = it.name.replace(' ', '-')
+                downstream("${project_name}/${project_name}-brancher")
+            }
+        }
+    }
 }
