@@ -41,9 +41,7 @@ def projectsToCreate = new Yaml().load(
 //projectsToCreate = new Yaml().load(projectsToCreateYaml)
 
 projectsToCreate.each { createProject(it) }
-
-
-// trigger_project_brancher(projects_to_create)
+trigger_project_brancher(projectsToCreate)
 
 //  ################################### METHODS #####################################  //
 
@@ -94,96 +92,206 @@ def createProject(app) {
     }
   }
 
-
-  job("${_folder_name}/${_job_name}") {
-      if(_nodeLabel) { label(_nodeLabel) }
-      if(_desc) { description(_desc) }
-      if(_displayName) {
-          // string
-          displayName(_displayName)
-      }
-
-      if(_concurrent) {
-          // boolean; defaults to false
-          concurrentBuild(_concurrent)
-      }
-
-      if(_quietPeriod) {
-          // integer
-          quietPeriod(_quietPeriod)
-      }
-
-      if(_blockDownstream) {
-        // boolean
-        blockOnDownstreamProjects()
-      }
-
-      if(_blockUpstream) {
-        // boolean
-        blockOnUpstreamProjects()
-      }
-
-      if(_checkoutRetryCount) {
-        // integer
-        checkoutRetryCount(_checkoutRetryCount)
-      }
-
-      if(_logRotate) {
-          logRotator {
-            if(_logRotate.daysToKeep) { daysToKeep(_logRotate.daysToKeep) }
-            if(_logRotate.numToKeep) { numToKeep(_logRotate.numToKeep) }
-            if(_logRotate.artifactDaysToKeep) { artifactDaysToKeep(_logRotate.artifactDaysToKeep) }
-            if(_logRotate.artifactNumToKeep) { artifactNumToKeep(_logRotate.artifactNumToKeep) }
+    if(_thisJob.brancher == 'enabled') {
+      create_brancher_job()
+    } else {
+      job("${_folder_name}/${_job_name}") {
+          if(_nodeLabel) { label(_nodeLabel) }
+          if(_desc) { description(_desc) }
+          if(_displayName) {
+              // string
+              displayName(_displayName)
           }
-      }
-      // if(_thisJob.brancher == 'enabled') {
-      //   println 'brancher enabled!'
-      // } else {
-      //   configureMultiSCM()
-      // }
-      steps {
-          if(_buildSteps) {
-              for (step in _buildSteps) {
-                  if (step.containsKey('shell')) { shell(step.shell) }
-                  if (step.containsKey('system-groovy')) {
-                      systemGroovyScriptFile(step['system-groovy'].file)
+
+          if(_concurrent) {
+              // boolean; defaults to false
+              concurrentBuild(_concurrent)
+          }
+
+          if(_quietPeriod) {
+              // integer
+              quietPeriod(_quietPeriod)
+          }
+
+          if(_blockDownstream) {
+            // boolean
+            blockOnDownstreamProjects()
+          }
+
+          if(_blockUpstream) {
+            // boolean
+            blockOnUpstreamProjects()
+          }
+
+          if(_checkoutRetryCount) {
+            // integer
+            checkoutRetryCount(_checkoutRetryCount)
+          }
+
+          if(_logRotate) {
+              logRotator {
+                if(_logRotate.daysToKeep) { daysToKeep(_logRotate.daysToKeep) }
+                if(_logRotate.numToKeep) { numToKeep(_logRotate.numToKeep) }
+                if(_logRotate.artifactDaysToKeep) { artifactDaysToKeep(_logRotate.artifactDaysToKeep) }
+                if(_logRotate.artifactNumToKeep) { artifactNumToKeep(_logRotate.artifactNumToKeep) }
+              }
+          }
+
+          multiscm {
+            if(_scm) {
+              git {
+                  remote {
+                      url(REMOTE_URL)
+                      credentials(REMOTE_SCM_CREDS)
                   }
-                  if (step.containsKey('dsl')) {
-                      dsl {
-                          external(step.dsl.file)
-                          ignoreExisting(false)
-                          removeAction('DELETE')
-                          removeViewAction('DELETE')
+                  branch(_thisJob.default_branch)
+                  extensions {
+                      relativeTargetDirectory(SOURCE_DIR)
+                  }
+              }
+              if (System.getenv('BUILD_ENV') == 'local') {
+                shell('test -L ci || ln -s /sirjenkins-ci ci')
+              } else {
+                  git {
+                      remote {
+                          url(CI_REMOTE_URL)
+                          credentials(CI_SCM_CREDS)
                       }
-
+                      branch(CI_BRANCH)
+                      extensions {
+                          relativeTargetDirectory(CI_DIR)
+                      }
                   }
               }
-          }
-      }  // end steps
-      publishers {
-          if(_downstream) {
-              for(job in _downstream) {
-                  downstream(_downstream)
+            }
+          } // end multiscm
+
+          steps {
+              if(_buildSteps) {
+                  for (step in _buildSteps) {
+                      if (step.containsKey('shell')) { shell(step.shell) }
+                      if (step.containsKey('system-groovy')) {
+                          systemGroovyScriptFile(step['system-groovy'].file)
+                      }
+                      if (step.containsKey('dsl')) {
+                          dsl {
+                              external(step.dsl.file)
+                              ignoreExisting(false)
+                              removeAction('DELETE')
+                              removeViewAction('DELETE')
+                          }
+
+                      }
+                  }
               }
-          }
-      }  // end publishers
-  }
+          }  // end steps
+          publishers {
+              if(_downstream) {
+                  for(job in _downstream) {
+                      downstream(_downstream)
+                  }
+              }
+          }  // end publishers
+      }
+    }
 }
 
 
-def configureMultiSCM() {
-  multiscm {
+def create_brancher_job() {
+  // println prettyYaml(_thisJob)
+  _yaml = """_app = \"\"\"\n${prettyYaml(_thisJob)}\n\"\"\"\n\n"""
+  job("${_folder_name}/${_job_name}-brancher") {
+    disabled(false)
+    blockOnUpstreamProjects()
+    multiscm {
       if(_scm) {
-          git {
-              remote {
-                  url(REMOTE_URL)
-                  credentials(REMOTE_SCM_CREDS)
-              }
-              branch(_thisJob.default_branch)
-              extensions {
-                  relativeTargetDirectory(SOURCE_DIR)
-              }
+        git {
+            remote {
+                url(REMOTE_URL)
+                credentials(REMOTE_SCM_CREDS)
+            }
+            branch(_thisJob.default_branch)
+            extensions {
+                relativeTargetDirectory(SOURCE_DIR)
+            }
+        }
+        if (System.getenv('BUILD_ENV') == 'local') {
+          steps {
+            shell('test -L ci || ln -s /sirjenkins-ci ci')
           }
+        } else {
+            git {
+                remote {
+                    url(CI_REMOTE_URL)
+                    credentials(CI_SCM_CREDS)
+                }
+                branch(CI_BRANCH)
+                extensions {
+                    relativeTargetDirectory(CI_DIR)
+                }
+            }
+        }
+      }
+    } // end multiscm
+    steps {
+      jobDsl {
+          scriptText(_yaml + readFileFromWorkspace('ci/brancher.dsl'))
+          lookupStrategy('SEED_JOB')
+          additionalClasspath('/usr/lib/jvm/java-1.8-openjdk/jre/bin')
+          // failOnMissingPlugin(true)
+          ignoreExisting(false)
+          // ignoreMissingFiles(false)
+          removedJobAction('DELETE')
+          removedViewAction('DELETE')
+      }
+    }
+    publishers {
+        groovyPostBuild {
+          script(readFileFromWorkspace('ci/brancher-post-build-trigger.groovy'))
+        }
+    }
+  }
+}
+
+// def configureSCM() {
+//   if(_scm) {
+//     scm {
+//       git {
+//           remote {
+//               url(REMOTE_URL)
+//               credentials(REMOTE_SCM_CREDS)
+//           }
+//           branch(_thisJob.default_branch)
+//           extensions {
+//               relativeTargetDirectory(SOURCE_DIR)
+//           }
+//       }
+//     } // end scm
+//   }
+// }
+
+
+def configureMultiSCM() {
+  // if(_thisJob.brancher == 'enabled') {
+  //   println 'brancher enabled!'
+  // } else {
+  //   println 'brancher disabled!'
+  // }
+  multiscm {
+    if(_scm) {
+      git {
+          remote {
+              url(REMOTE_URL)
+              credentials(REMOTE_SCM_CREDS)
+          }
+          branch(_thisJob.default_branch)
+          extensions {
+              relativeTargetDirectory(SOURCE_DIR)
+          }
+      }
+      if (System.getenv('BUILD_ENV') == 'local') {
+        shell('test -L ci || ln -s /sirjenkins-ci ci')
+      } else {
           git {
               remote {
                   url(CI_REMOTE_URL)
@@ -195,7 +303,8 @@ def configureMultiSCM() {
               }
           }
       }
-  }  // end multiscm
+    }
+  } // end multiscm
 }
 
 

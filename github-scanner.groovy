@@ -83,7 +83,7 @@ def main() {
           println 'Add Array to LinkedHashMap'
           // println yamlInfo
         } else {
-          println yamlInfo.class
+          // println yamlInfo.class
           if(yamlInfo.app) {
             projects_to_create.add(it + yamlInfo.app)
             // println prettyYaml(it + yamlInfo.app)
