@@ -1,3 +1,7 @@
+@Grab(group='org.yaml', module='snakeyaml', version='1.17')
+import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.DumperOptions
+
 /* NOTES
    needs details to get info from github
    figure out if owner is a user or organization
@@ -25,27 +29,31 @@ import jenkins.model.Jenkins
 // import org.kohsuke.github.GHUser
 
 env = System.getenv()
+JENKINS_SETUP_YAML = env['JENKINS_SETUP_YAML'] ?: "${env['JENKINS_CONFIG_HOME']}/setup.yml"
+def config = new Yaml().load(new File(JENKINS_SETUP_YAML).text)
+
 VERBOSE = env['VERBOSE'] ?: false
 WORKSPACE = env['WORKSPACE'] ?: Thread.currentThread().executable.workspace
 CACHE_DIR = "${WORKSPACE}/cache"
-SCANNING_FOR = env['SCANNING_FOR'] ?: 'sirjenkins.yml'
+SCANNING_FOR = env['SCANNING_FOR'] ?: 'sirjenkins'
 
 GITHUB_API_URL = env['GITHUB_API_URL'] ?: 'https://api.github.com'
 GITHUB_APIKEY_ID = 'github-api-jnbnyc'  // TODO
 GITHUB_RAW_CONTENT = 'https://raw.githubusercontent.com'
 GITHUB_REPO_REGEX = env['GITHUB_REPO_REGEX'] ?: '.*'
 
-USER = env['GITHUB_USER'] ?: ''
+USER = config.github.scan_user ?: env['GITHUB_USER']
 USER_REPOS = "${GITHUB_API_URL}/users/${USER}/repos"
 OAUTH = getCredentials(GITHUB_APIKEY_ID)
 
 ORG = env['GITHUB_ORGANIZATION'] ?: ''  // TODO
 REPOS_URL = USER_REPOS
 
-
 // ensure cache directory exists
 new File("${CACHE_DIR}/").mkdirs()
 
+// TODO
+// throw error if this fails to retrive and stop build
 if(api_call(REPOS_URL)) { main() }
 
 //  ################################### MAIN #####################################  //
@@ -54,7 +62,7 @@ def main() {
   application_map = []
   def repos_url_cache_key = get_cache_key(REPOS_URL)
   def repos_json = new JsonSlurper().parseText(new File("${CACHE_DIR}/${repos_url_cache_key}.json").text)
-  
+
   repos_json.each {
     if(it.name.find(GITHUB_REPO_REGEX)) {
         application_map.add(it)
@@ -65,14 +73,28 @@ def main() {
 
   projects_to_create = []
   def repos_to_scan = new JsonSlurper().parseText(new File("${WORKSPACE}/github.json").text)
-  repos_to_scan.each {    
-    DEPENDENCY_URL = "${GITHUB_RAW_CONTENT}/${it.full_name}/${it.default_branch}/${SCANNING_FOR}"
+  repos_to_scan.each {
+    DEPENDENCY_URL = "${GITHUB_RAW_CONTENT}/${it.full_name}/${it.default_branch}/${SCANNING_FOR}.yaml"
     if(api_call(DEPENDENCY_URL)) {
         println "Found ${SCANNING_FOR} in ${it.name} on branch ${it.default_branch}"
-        projects_to_create.add(it)
+        def yamlInfo = new Yaml().load(getProjectDefinition(DEPENDENCY_URL))
+        if(yamlInfo.class == java.util.ArrayList) {
+          // TODO
+          println 'Add Array to LinkedHashMap'
+          // println yamlInfo
+        } else {
+          println yamlInfo.class
+          if(yamlInfo.app) {
+            projects_to_create.add(it + yamlInfo.app)
+            // println prettyYaml(it + yamlInfo.app)
+            println "Added ${it.name} project"
+          }
+        }
     }
   }
+
   write_file("${WORKSPACE}/projects.json", JsonOutput.prettyPrint(JsonOutput.toJson(projects_to_create)))
+  write_file("${WORKSPACE}/projects.yaml", prettyYaml(projects_to_create))
 
 }
 
@@ -107,7 +129,7 @@ Boolean api_call(url, params = [:]) {
         if(remainingLimit != null) { println "RateLimit-Remaining: ${remainingLimit}" }
 
         if(connection.responseCode == 304) {
-            println 'hooray, saved an api call'  
+            println 'hooray, saved an api call'
         } else if(connection.responseCode == connection.HTTP_OK ) {
             //println "Etag: " + connection.getHeaderField('ETag')
             if( connection.getHeaderField('ETag') != null ) {
@@ -169,9 +191,29 @@ String getCredentials(credentialsId) {
                 if(credentials.getDescription().equals(credentialsId) || credentials.getId().equals(credentialsId)) {
                     // return credentials.getSecret().toString();
                     return credentials.getPassword().toString();
-                }   
-            }   
+                }
+            }
         }
         throw new IllegalArgumentException("Unable to find credential with ID: ${credentialsId}")
     // }
+}
+
+
+def prettyYaml(input) {
+    DumperOptions options = new DumperOptions()
+    options.setLineBreak(DumperOptions.LineBreak.UNIX)
+    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
+    return new Yaml(options).dump(input)
+}
+
+
+def read_file(path) {
+    return new File(path).text
+}
+
+
+def getProjectDefinition(url) {
+    def cache_key = get_cache_key(url)
+    def path = "${CACHE_DIR}/${cache_key}.json"
+    return read_file(path)
 }
